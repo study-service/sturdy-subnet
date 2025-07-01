@@ -1,0 +1,28 @@
+{
+  "count": 2,
+  "hasMore": true,
+  "data": [
+    {
+      "open": 1,
+      "high": 1,
+      "low": 1,
+      "close": 1,
+      "start_block": 5848838,
+      "timestamp": 1750740300000,
+      "subnet": 127,
+      "last_processed_block": 5848838,
+      "volume": 0
+    },
+    {
+      "open": 2.7719248520890334,
+      "high": 5.428059951265903,
+      "low": 2.7719248520890334,
+      "close": 5.428059951265903,
+      "start_block": 5858329,
+      "timestamp": 1750856184001,
+      "subnet": 127,
+      "last_processed_block": 5858495,
+      "volume": 0.664909864
+    }
+  ]
+}

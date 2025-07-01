@@ -1,0 +1,483 @@
+[
+  {
+    "chainName": "ethereum",
+    "address": "0x2ca52c78d7932e285f2ea5928fb7251baec3f166",
+    "totalAssets": 306464917920362560,
+    "baseAPY": 8.132602678815042e-07,
+    "totalDebt": 306464917920362560,
+    "name": "Sommelier aggregator",
+    "whitelistedSilos": [
+      {
+        "collateral": "TurboSWETH",
+        "currentDebt": 0,
+        "lendAPY": 1.8671901361159698e-07
+      },
+      {
+        "collateral": "TurboSTETH",
+        "currentDebt": 0,
+        "lendAPY": 0.006187504788480507
+      },
+      {
+        "collateral": "YieldETH",
+        "currentDebt": 306464917920362560,
+        "lendAPY": 8.132602678815042e-07
+      }
+    ],
+    "rewardTokens": [
+      "0xa670d7237398238DE01267472C6f13e5B8010FD1",
+      "0xaeB3607eC434454ceB308f5Cd540875efb54309A"
+    ],
+    "tvl": 767.3697665775127,
+    "apy": {
+      "total": 8.132602678815042e-07,
+      "rewards": {
+        "0xa670d7237398238de01267472c6f13e5b8010fd1": 0,
+        "0xaeb3607ec434454ceb308f5cd540875efb54309a": 0
+      },
+      "base": 8.132602678815042e-07
+    },
+    "asset": {
+      "symbol": "WETH",
+      "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "price": "2503.94",
+      "decimals": 18
+    },
+    "rewardsAPY": 0
+  },
+  {
+    "chainName": "ethereum",
+    "address": "0x73e4c11b670ef9c025a030a20b72cb9150e54523",
+    "totalAssets": 2.4858515123234858e+23,
+    "baseAPY": 0.2141781871538845,
+    "totalDebt": 2.336000530451217e+23,
+    "name": "Sturdy Aggregator - crvUSD",
+    "whitelistedSilos": [
+      {
+        "collateral": "yvCurve-mkUSD-crvUSD-f",
+        "currentDebt": 0,
+        "lendAPY": 0.004845426762382529
+      },
+      {
+        "collateral": "yvCurve-USDT-crvUSD-f",
+        "currentDebt": 1.999294152909888e+23,
+        "lendAPY": 0.03262302496891353
+      },
+      {
+        "collateral": "yvCurve-USDC-crvUSD-f",
+        "currentDebt": 3.367063775413292e+22,
+        "lendAPY": 1.3875357835040074
+      },
+      {
+        "collateral": "yvCurve-FRAX-crvUSD-f",
+        "currentDebt": 0,
+        "lendAPY": 0.0001128913149973992
+      }
+    ],
+    "rewardTokens": [
+      "0xaeB3607eC434454ceB308f5Cd540875efb54309A",
+      "0xD533a949740bb3306d119CC777fa900bA034cd52"
+    ],
+    "tvl": 248490.54469549257,
+    "apy": {
+      "total": 0.32786212650556434,
+      "rewards": {
+        "0xd533a949740bb3306d119cc777fa900ba034cd52": 0,
+        "0xaeb3607ec434454ceb308f5cd540875efb54309a": 0.11368393935167984
+      },
+      "base": 0.2141781871538845
+    },
+    "asset": {
+      "symbol": "crvUSD",
+      "address": "0xf939e0a03fb07f59a73314e73794be0e57ac1b4e",
+      "price": "0.99961942",
+      "decimals": 18
+    },
+    "rewardsAPY": 0.11368393935167984
+  },
+  {
+    "chainName": "ethereum",
+    "address": "0x8670120c32de7bc990e0fe3bbd04704e98492f0a",
+    "totalAssets": 57593657697,
+    "baseAPY": 0.00017241359537265697,
+    "totalDebt": 52805444002,
+    "name": "Usual aggregator",
+    "whitelistedSilos": [
+      {
+        "collateral": "USD0++",
+        "currentDebt": 52805444002,
+        "lendAPY": 0.0001880474595351527
+      }
+    ],
+    "rewardTokens": [
+      "0xaeB3607eC434454ceB308f5Cd540875efb54309A"
+    ],
+    "tvl": 57586.74818588609,
+    "apy": {
+      "total": 0.16369026508347997,
+      "rewards": {
+        "0xaeb3607ec434454ceb308f5cd540875efb54309a": 0.16351785148810732
+      },
+      "base": 0.00017241359537265697
+    },
+    "asset": {
+      "symbol": "USDC",
+      "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "price": "0.99988003",
+      "decimals": 6
+    },
+    "rewardsAPY": 0.16351785148810732
+  },
+  {
+    "chainName": "ethereum",
+    "address": "0x93ebc3ca85f96afd72edb914e833fe18888de179",
+    "totalAssets": 5.479185098216509e+22,
+    "baseAPY": 0.014886669392608312,
+    "totalDebt": 4.324288216453393e+22,
+    "name": "GHO aggregator",
+    "whitelistedSilos": [
+      {
+        "collateral": "yvCurve-GHO-crvUSD-f",
+        "currentDebt": 5.43799084465148e+22,
+        "lendAPY": 0.014998885850449098
+      },
+      {
+        "collateral": "yvCurve-fxUSD-GHO-f",
+        "currentDebt": 411942535650283900000,
+        "lendAPY": 7.314523458228871e-05
+      }
+    ],
+    "rewardTokens": [
+      "0xaeB3607eC434454ceB308f5Cd540875efb54309A",
+      "0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f"
+    ],
+    "tvl": 54759.25695377133,
+    "apy": {
+      "total": 0.1868477561818664,
+      "rewards": {
+        "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f": 0,
+        "0xaeb3607ec434454ceb308f5cd540875efb54309a": 0.1719610867892581
+      },
+      "base": 0.014886669392608312
+    },
+    "asset": {
+      "symbol": "GHO",
+      "address": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
+      "price": "0.99940513",
+      "decimals": 18
+    },
+    "rewardsAPY": 0.1719610867892581
+  },
+  {
+    "chainName": "ethereum",
+    "address": "0xaca399117ac588e1f48398d34eca76cdb1e45fa5",
+    "totalAssets": 291871198228,
+    "baseAPY": 0,
+    "totalDebt": 0,
+    "name": "Ondo aggregator",
+    "whitelistedSilos": [],
+    "rewardTokens": [
+      "0xaeB3607eC434454ceB308f5Cd540875efb54309A"
+    ],
+    "tvl": 291836.18244034855,
+    "apy": {
+      "total": 0.1613312862511057,
+      "rewards": {
+        "0xaeb3607ec434454ceb308f5cd540875efb54309a": 0.1613312862511057
+      },
+      "base": 0
+    },
+    "asset": {
+      "symbol": "USDC",
+      "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "price": "0.99988003",
+      "decimals": 6
+    },
+    "rewardsAPY": 0.1613312862511057
+  },
+  {
+    "chainName": "ethereum",
+    "address": "0xaed098db0e39bed6ddc2c07727b8ffc0ba470d9c",
+    "totalAssets": 18393303825405385000,
+    "baseAPY": 0.004920171771594334,
+    "totalDebt": 18193860950755720000,
+    "name": "tBTC aggregator",
+    "whitelistedSilos": [
+      {
+        "collateral": "yvCurve-2BTC-f-f",
+        "currentDebt": 0,
+        "lendAPY": 0
+      },
+      {
+        "collateral": "swBTC",
+        "currentDebt": 1684746662256,
+        "lendAPY": 0.07250654760361117
+      },
+      {
+        "collateral": "eBTC",
+        "currentDebt": 18193859266009057000,
+        "lendAPY": 0.004974100919975124
+      }
+    ],
+    "rewardTokens": [
+      "0xaeB3607eC434454ceB308f5Cd540875efb54309A"
+    ],
+    "tvl": 1978145.0106872527,
+    "apy": {
+      "total": 0.028721413052361873,
+      "rewards": {
+        "0xaeb3607ec434454ceb308f5cd540875efb54309a": 0.02380124128076754
+      },
+      "base": 0.004920171771594334
+    },
+    "asset": {
+      "symbol": "tBTC",
+      "address": "0x18084fba666a33d37592fa2633fd49a74dd93a88",
+      "price": "107547.0197994",
+      "decimals": 18
+    },
+    "rewardsAPY": 0.02380124128076754
+  },
+  {
+    "chainName": "ethereum",
+    "address": "0xbd564bfe6f2366336ecd707862eda79b97bce383",
+    "totalAssets": 6656040392428128000,
+    "baseAPY": 0,
+    "totalDebt": 6656040392428128000,
+    "name": "Swell aggregator",
+    "whitelistedSilos": [
+      {
+        "collateral": "TurboSWETH",
+        "currentDebt": 0,
+        "lendAPY": 1.8671901361159698e-07
+      },
+      {
+        "collateral": "PT-rswETH-27JUN2024",
+        "currentDebt": 6656040392428128000,
+        "lendAPY": 0
+      },
+      {
+        "collateral": "swETH",
+        "currentDebt": 0,
+        "lendAPY": 6.914976545460894e-05
+      }
+    ],
+    "rewardTokens": [
+      "0xaeB3607eC434454ceB308f5Cd540875efb54309A",
+      "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+    ],
+    "tvl": 16666.325780216488,
+    "apy": {
+      "total": 0,
+      "rewards": {
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": 0,
+        "0xaeb3607ec434454ceb308f5cd540875efb54309a": 0
+      },
+      "base": 0
+    },
+    "asset": {
+      "symbol": "WETH",
+      "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "price": "2503.94",
+      "decimals": 18
+    },
+    "rewardsAPY": 0
+  },
+  {
+    "chainName": "ethereum",
+    "address": "0xcfb23d05f32ea0be0dbb5078d189cca89688945e",
+    "totalAssets": 218661643165722800000,
+    "baseAPY": 0.0019077452750043981,
+    "totalDebt": 193487639509836000000,
+    "name": "Redacted pxETH aggregator",
+    "whitelistedSilos": [
+      {
+        "collateral": "yvCurve-pxsteth-f",
+        "currentDebt": 193487639425043040000,
+        "lendAPY": 0.0021559553730838526
+      },
+      {
+        "collateral": "apxETH",
+        "currentDebt": 84792967168,
+        "lendAPY": 0.008613600780591023
+      }
+    ],
+    "rewardTokens": [
+      "0x6DF0E641FC9847c0c6Fde39bE6253045440c14d3",
+      "0xaeB3607eC434454ceB308f5Cd540875efb54309A",
+      "0xc55126051B22eBb829D00368f4B12Bde432de5Da"
+    ],
+    "tvl": 545931.2583878047,
+    "apy": {
+      "total": 0.08814993412997678,
+      "rewards": {
+        "0x6df0e641fc9847c0c6fde39be6253045440c14d3": 0,
+        "0xc55126051b22ebb829d00368f4b12bde432de5da": 0,
+        "0xaeb3607ec434454ceb308f5cd540875efb54309a": 0.08624218885497238
+      },
+      "base": 0.0019077452750043981
+    },
+    "asset": {
+      "symbol": "pxETH",
+      "address": "0x04c154b66cb340f3ae24111cc767e0184ed00cc6",
+      "price": "2496.6942097569695",
+      "decimals": 18
+    },
+    "rewardsAPY": 0.08624218885497238
+  },
+  {
+    "chainName": "ethereum",
+    "address": "0xe2fdf0526629d85b719dcbc6efe833b1b5b3cb36",
+    "totalAssets": 1276434982288710,
+    "baseAPY": 0.00035807041501548687,
+    "totalDebt": 1276434982288710,
+    "name": "Kelp aggregator",
+    "whitelistedSilos": [
+      {
+        "collateral": "PT-rsETH-27JUN2024",
+        "currentDebt": 1276434982288710,
+        "lendAPY": 0.00035807041501548687
+      },
+      {
+        "collateral": "rsETH",
+        "currentDebt": 0,
+        "lendAPY": 1.6566035411163224e-06
+      }
+    ],
+    "rewardTokens": [
+      "0xaeB3607eC434454ceB308f5Cd540875efb54309A"
+    ],
+    "tvl": 3.196116609551993,
+    "apy": {
+      "total": 0.00035807041501548687,
+      "rewards": {
+        "0xaeb3607ec434454ceb308f5cd540875efb54309a": 0
+      },
+      "base": 0.00035807041501548687
+    },
+    "asset": {
+      "symbol": "WETH",
+      "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "price": "2503.94",
+      "decimals": 18
+    },
+    "rewardsAPY": 0
+  },
+  {
+    "chainName": "mode",
+    "address": "0x2de57f6432ac67a99af5ab17017005048ae7a24c",
+    "totalAssets": 34587621947517590000,
+    "baseAPY": 3.935558760746096e-05,
+    "totalDebt": 34587621947517590000,
+    "name": "Stone aggregator",
+    "whitelistedSilos": [
+      {
+        "collateral": "STONE",
+        "currentDebt": 34587621947517590000,
+        "lendAPY": 3.935558760746096e-05
+      }
+    ],
+    "rewardTokens": [
+      "0xaeB3607eC434454ceB308f5Cd540875efb54309A"
+    ],
+    "tvl": 86546.67151616597,
+    "apy": {
+      "total": 0.10884147556034224,
+      "rewards": {
+        "0xaeb3607ec434454ceb308f5cd540875efb54309a": 0.10880211997273477
+      },
+      "base": 3.935558760746096e-05
+    },
+    "asset": {
+      "symbol": "WETH",
+      "address": "0x4200000000000000000000000000000000000006",
+      "price": "2502.24405851",
+      "decimals": 18
+    },
+    "rewardsAPY": 0.10880211997273477
+  },
+  {
+    "chainName": "mode",
+    "address": "0xd60dd6981ec336fda40820f8ca5e99cd17dd25a0",
+    "totalAssets": 201764580226377060000,
+    "baseAPY": 0.0073081570073692675,
+    "totalDebt": 201764580226377060000,
+    "name": "Renzo aggregator",
+    "whitelistedSilos": [
+      {
+        "collateral": "ezETH",
+        "currentDebt": 201764580226377060000,
+        "lendAPY": 0.007308157007369267
+      }
+    ],
+    "rewardTokens": [
+      "0xaeB3607eC434454ceB308f5Cd540875efb54309A"
+    ],
+    "tvl": 504864.2220892162,
+    "apy": {
+      "total": 0.08191404845735792,
+      "rewards": {
+        "0xaeb3607ec434454ceb308f5cd540875efb54309a": 0.07460589144998865
+      },
+      "base": 0.0073081570073692675
+    },
+    "asset": {
+      "symbol": "WETH",
+      "address": "0x4200000000000000000000000000000000000006",
+      "price": "2502.24405851",
+      "decimals": 18
+    },
+    "rewardsAPY": 0.07460589144998865
+  },
+  {
+    "chainName": "ethereum",
+    "address": "0x7077ef67fe49ffb1260b893f2cd8475eeb72bbbb",
+    "totalAssets": 0,
+    "baseAPY": 0,
+    "totalDebt": 2047802112090,
+    "name": "USDC AeraVault Strategy",
+    "whitelistedSilos": [],
+    "rewardTokens": [
+      "0xaeB3607eC434454ceB308f5Cd540875efb54309A",
+      "0x58d97b57bb95320f9a05dc918aef65434969c2b2"
+    ],
+    "tvl": 0,
+    "apy": {
+      "total": 0,
+      "morphoTokenAmount": 0,
+      "rewards": {
+        "0xaeb3607ec434454ceb308f5cd540875efb54309a": 0
+      },
+      "base": 0
+    },
+    "asset": {
+      "symbol": "USDC",
+      "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "price": "0.99988003",
+      "decimals": 6
+    },
+    "rewardsAPY": 0
+  },
+  {
+    "chainName": "ethereum",
+    "address": "0xe4b0f1967a3098e26e4c939036d58d713b30ddbf",
+    "totalAssets": 0,
+    "baseAPY": 0,
+    "totalDebt": 0,
+    "name": "Yearn WETH aggregator",
+    "whitelistedSilos": [],
+    "rewardTokens": [],
+    "tvl": 0,
+    "apy": {
+      "total": 0,
+      "rewards": {},
+      "base": 0
+    },
+    "asset": {
+      "symbol": "WETH",
+      "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "price": "2503.94",
+      "decimals": 18
+    },
+    "rewardsAPY": 0
+  }
+]

@@ -1,0 +1,39 @@
+{
+  "count": 3,
+  "hasMore": true,
+  "data": [
+    {
+      "open": 1,
+      "high": 1,
+      "low": 1,
+      "close": 1,
+      "start_block": 5834409,
+      "timestamp": 1750567152000,
+      "subnet": 125,
+      "last_processed_block": 5834409,
+      "volume": 0
+    },
+    {
+      "open": 2.2929339372064463,
+      "high": 2.2929339372064463,
+      "low": 2.2929339372064463,
+      "close": 2.2929339372064463,
+      "start_block": 5850181,
+      "timestamp": 1750756416000,
+      "subnet": 125,
+      "last_processed_block": 5850181,
+      "volume": 0
+    },
+    {
+      "open": 3.5457337016218333,
+      "high": 3.5457337016218333,
+      "low": 3.5457337016218333,
+      "close": 3.5457337016218333,
+      "start_block": 5858485,
+      "timestamp": 1750856064000,
+      "subnet": 125,
+      "last_processed_block": 5858485,
+      "volume": 0
+    }
+  ]
+}
