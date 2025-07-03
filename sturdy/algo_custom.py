@@ -109,9 +109,18 @@ async def naive_algorithm_optimize(self: BaseMinerNeuron, synapse: AllocateAsset
         }
     bt.logging.debug(f"pools: {pools}")
     
-    result = await optimize_allocation(list(pools.values()), balance, 1_00_000)
+    # --- Add minimum allocation to result ---
+    pool_list = list(pools.values())
+    pool_uids = list(pools.keys())
+    minimums_list = [minimums[uid] for uid in pool_uids]
+    result = await optimize_allocation(pool_list, balance, 1_00_000)
     bt.logging.debug(f"result: {result}")
-    return result
+    # Add minimums to each allocation
+    final_allocations = [alloc + min_alloc for alloc, min_alloc in zip(result, minimums_list)]
+    # Return as a dict mapping pool_uid to allocation
+    allocation_dict = {uid: alloc for uid, alloc in zip(pool_uids, final_allocations)}
+    bt.logging.debug(f"allocation_dict: {allocation_dict}")
+    return allocation_dict
 
 class SegmentTree:
     """
