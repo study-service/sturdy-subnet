@@ -4,12 +4,12 @@ import bittensor as bt
 from eth_account.datastructures import SignedMessage
 from eth_account.messages import encode_defunct
 
-import sturdy
+from sturdy.protocol import UniswapV3PoolLiquidity
 
 
 async def uniswap_v3_lp_forward(
-    self, synapse: sturdy.protocol.UniswapV3PoolLiquidity
-) -> sturdy.protocol.UniswapV3PoolLiquidity:
+    self, synapse: UniswapV3PoolLiquidity
+) -> UniswapV3PoolLiquidity:
     bt.logging.warning("Received UniswapV3PoolLiquidity synapse")
     # set the token ids of your position
     synapse.token_ids = [36]
@@ -21,7 +21,7 @@ async def uniswap_v3_lp_forward(
     return synapse
 
 
-async def blacklist(self, synapse: sturdy.protocol.UniswapV3PoolLiquidity) -> typing.Tuple[bool, str]:
+async def blacklist(self, synapse: UniswapV3PoolLiquidity) -> typing.Tuple[bool, str]:
     """
     Determines whether an incoming request should be blacklisted and thus ignored. Your implementation should
     define the logic for blacklisting requests based on your needs and desired security parameters.
@@ -52,7 +52,7 @@ async def blacklist(self, synapse: sturdy.protocol.UniswapV3PoolLiquidity) -> ty
     Otherwise, allow the request to be processed further.
     """
 
-    bt.logging.info("Checking miner blacklist")
+    bt.logging.info("UniSwap Checking miner blacklist")
 
     if synapse.dendrite.hotkey not in self.metagraph.hotkeys:  # type: ignore[]
         return True, "Hotkey is not registered"
@@ -66,17 +66,17 @@ async def blacklist(self, synapse: sturdy.protocol.UniswapV3PoolLiquidity) -> ty
         bt.logging.info(
             f"Hotkey: {synapse.dendrite.hotkey}: stake below minimum threshold of {self.config.validator.min_stake}"  # type: ignore[]
         )
-        return True, "Stake below minimum threshold"
+        return False, "Stake below minimum threshold"
 
-    validator_permit = self.metagraph.validator_permit[requesting_uid].item()
-    if not validator_permit:
-        return True, "Requesting UID has no validator permit"
+    # validator_permit = self.metagraph.validator_permit[requesting_uid].item()
+    # if not validator_permit:
+    #     return True, "Requesting UID has no validator permit"
 
     bt.logging.trace(f"Allowing request from UID: {requesting_uid}")
     return False, "Allowed"
 
 
-async def priority(self, synapse: sturdy.protocol.UniswapV3PoolLiquidity) -> float:
+async def priority(self, synapse: UniswapV3PoolLiquidity) -> float:
     """
     The priority function determines the order in which requests are handled. More valuable or higher-priority
     requests are processed before others. You should design your own priority mechanism with care.

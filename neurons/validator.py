@@ -3,14 +3,14 @@
 # Copyright © 2023 Syeam Bin Abdullah
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-# documentation files (the “Software”), to deal in the Software without restriction, including without limitation
+# documentation files (the "Software"), to deal in the Software without restriction, including without limitation
 # the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
 # and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
 # The above copyright notice and this permission notice shall be included in all copies or substantial portions of
 # the Software.
 
-# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
 # THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
 # THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
@@ -88,7 +88,7 @@ class Validator(BaseValidatorNeuron):
 
 
 # API
-app = FastAPI(debug=False)
+app = FastAPI(debug=True)
 
 
 def _get_api_key(request: Request) -> Any:
@@ -213,18 +213,23 @@ async def allocate(body: AllocateAssetsRequest) -> AllocateAssetsResponse | None
             }
         }
     """
+    bt.logging.info(f"🌐 API REQUEST: /allocate endpoint called")
+    bt.logging.debug(f"🌐 Request body: {body}")
+    
     synapse: Any = get_synapse_from_body(body=body, synapse_model=AllocateAssets)
-    bt.logging.debug(f"Synapse:\n{synapse}")
+    bt.logging.debug(f"🔧 Synapse created:\n{synapse}")
     pools: Any = synapse.assets_and_pools["pools"]
     total_assets: int = synapse.assets_and_pools["total_assets"]
 
     # Validate minimum total assets requirement
     if total_assets <= MIN_TOTAL_ASSETS_AMOUNT:
+        bt.logging.warning(f"⚠️  INSUFFICIENT ASSETS: {total_assets} <= {MIN_TOTAL_ASSETS_AMOUNT}")
         raise HTTPException(
             status_code=400,
             detail=f"Total assets must be greater than {MIN_TOTAL_ASSETS_AMOUNT}",
         )
 
+    bt.logging.info(f"🔧 Creating {len(pools)} pools...")
     new_pools = {}
     for uid, pool in pools.items():
         if pool.pool_type == POOL_TYPES.BT_ALPHA:
@@ -248,7 +253,7 @@ async def allocate(body: AllocateAssetsRequest) -> AllocateAssetsResponse | None
 
     synapse.assets_and_pools["pools"] = new_pools
 
-    bt.logging.info("Querying miners...")
+    bt.logging.info(f"🚀 INITIATING MINER QUERY: Requesting {body.num_allocs} allocations")
 
     chain_data_provider = core_validator.pool_data_providers[synapse.pool_data_provider]
 
@@ -261,6 +266,7 @@ async def allocate(body: AllocateAssetsRequest) -> AllocateAssetsResponse | None
     )
 
     request_uuid = uid = str(uuid.uuid4()).replace("-", "")
+    bt.logging.info(f"📋 REQUEST UUID: {request_uuid}")
 
     to_ret = dict(list(result.items())[: body.num_allocs])
     ret = AllocateAssetsResponse(allocations=to_ret, request_uuid=request_uuid)
@@ -282,6 +288,7 @@ async def allocate(body: AllocateAssetsRequest) -> AllocateAssetsResponse | None
             REQUEST_TYPES.ORGANIC,
         )
 
+    bt.logging.info(f"✅ API RESPONSE: Returning {len(to_ret)} allocations")
     return ret
 
 
@@ -428,6 +435,7 @@ async def allocate_bt(body: BTAlphaPoolRequest) -> AllocateAssetsResponse | None
 
 
 async def main() -> None:
+    bt.logging.info("Starting validator...")
     global core_validator  # noqa: PLW0603
     core_validator = await Validator.create()
 

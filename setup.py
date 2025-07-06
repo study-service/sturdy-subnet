@@ -73,7 +73,7 @@ setup(
     package_data={"sturdy": ["abi/*.json"]},
     author_email="syeamtechdemon@gmail.com",
     license="MIT",
-    python_requires=">=3.10,<3.11",
+    python_requires=">=3.10,<3.12",
     install_requires=requirements,
     entry_points={
         "console_scripts": [
@@ -90,6 +90,7 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Topic :: Scientific/Engineering",
         "Topic :: Scientific/Engineering :: Mathematics",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",

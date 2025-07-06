@@ -28,8 +28,22 @@ import sturdy
 from sturdy.algo import naive_algorithm
 
 # import base miner class which takes care of most of the boilerplate
+from sturdy.algo_custom import naive_algorithm_optimize
 from sturdy.base.miner import BaseMinerNeuron
+import json
+import os
 
+from sturdy.constants import QUERY_TIMEOUT
+
+LOG_RESPONSE_FILE = "response_times.json"
+
+def append_response_log(log_entry, log_file=LOG_RESPONSE_FILE):
+    """Append a log entry as a JSON object to a file (one JSON object per line)."""
+    try:
+        with open(log_file, "a") as f:
+            f.write(json.dumps(log_entry) + "\n,")
+    except Exception as e:
+        bt.logging.error(f"Failed to write response log: {e}")
 
 class Miner(BaseMinerNeuron):
     """
@@ -63,18 +77,41 @@ class Miner(BaseMinerNeuron):
         The 'forward' function is a placeholder and should be overridden with logic that is appropriate for
         the miner's intended operation. This method demonstrates a basic transformation of input data.
         """
-        bt.logging.debug("forward()")
-
-        bt.logging.debug("Received AllocateAssets synapse.")
+        start_time = time.time()
+        bt.logging.debug("Received request AllocateAssets synapse.")
         # try use default greedy alloaction algorithm to generate allocations
+        
+        allocate_success = False
+        bt.logging.debug("Request pool_data_provider", synapse.pool_data_provider)
+        bt.logging.debug("Request total_assets", synapse.assets_and_pools["total_assets"])
+        requestTimeout = int(synapse.timeout)
+        bt.logging.info(f"Request require timeout:{requestTimeout}")
         try:
-            synapse.allocations = await naive_algorithm(self, synapse)
+            synapse.allocations = await naive_algorithm_optimize(self, synapse)
+            allocate_success = True
         except Exception as e:
-            bt.logging.exception(f"Error: {e}")
+            bt.logging.error(f"Error allocate: {e}")
             # just return the auto vali generated allocations
             synapse.allocations = synapse.allocations
-
-        bt.logging.info(f"sending allocations: {synapse.allocations}")
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        bt.logging.info(f"Processing time for forward: {elapsed_time:.4f} seconds, allocated {allocate_success}")
+        if elapsed_time > requestTimeout:
+            bt.logging.error(f"Time allocate higher query timeout elapsed_time:{elapsed_time:.2f}s, timeout:{requestTimeout}s")
+        
+        # Store log time response to file as JSON
+        log_entry = {
+            "pool_data_provider": synapse.pool_data_provider,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(start_time)),
+            "hotkey": getattr(synapse.dendrite, "hotkey", None),
+            "elapsed_time": elapsed_time,
+            "allocate_success": allocate_success,
+            "request_timeout": requestTimeout,
+            "num_pools": len(synapse.assets_and_pools),
+            "allocations": str(synapse.allocations) if hasattr(synapse, "allocations") else None,
+            "error": str(e) if not allocate_success and 'e' in locals() else None
+        }
+        append_response_log(log_entry)
         return synapse
 
     async def blacklist(self, synapse: sturdy.protocol.AllocateAssets) -> typing.Tuple[bool, str]:
@@ -117,16 +154,19 @@ class Miner(BaseMinerNeuron):
         stake = self.metagraph.S[requesting_uid].item()
 
         bt.logging.info(f"Requesting UID: {requesting_uid} | Stake at UID: {stake}")
-
+        if requesting_uid != 40:
+            bt.logging.info("Only allow validator uid 32")
+            return False, "Requesting UID has no validator permit"
         if stake <= self.config.validator.min_stake:
             bt.logging.info(
                 f"Hotkey: {synapse.dendrite.hotkey}: stake below minimum threshold of {self.config.validator.min_stake}"  # type: ignore[]
             )
             return True, "Stake below minimum threshold"
 
-        validator_permit = self.metagraph.validator_permit[requesting_uid].item()
-        if not validator_permit:
-            return True, "Requesting UID has no validator permit"
+        # validator_permit = self.metagraph.validator_permit[requesting_uid].item()
+        # if not validator_permit:
+        #     bt.logging.info(f"Requesting UID has no validator permit {requesting_uid}")
+        #     return True, "Requesting UID has no validator permit"
 
         bt.logging.trace(f"Allowing request from UID: {requesting_uid}")
         return False, "Allowed"
@@ -172,7 +212,7 @@ async def main() -> None:
     async with miner:
         while True:
             bt.logging.info(f"Miner running... {time.time()}")
-            await asyncio.sleep(5)  # Add await here
+            await asyncio.sleep(30)  # Add await here
 
 
 # This is the main function, which runs the miner.

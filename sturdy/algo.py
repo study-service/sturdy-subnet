@@ -85,8 +85,15 @@ async def naive_algorithm(self: BaseMinerNeuron, synapse: AllocateAssets) -> dic
     # by default we just distribute tao equally lol
     if first_pool.pool_type == POOL_TYPES.BT_ALPHA:
         self.pool_data_providers[first_pool.pool_data_provider_type]
-        return {
+        result = {
             netuid: AlphaTokenPoolAllocation(delegate_ss58=delegate_ss58, amount=math.floor(balance / N)) for netuid in pools
         }
+        bt.logging.info("native_algo Result allocate of BT ALPHA", len(result))
+        return result;
 
-    return {pool_uid: minimums[pool_uid] + math.floor((rates[pool_uid] / rates_sum) * balance) for pool_uid in pools}
+    result = {pool_uid: minimums[pool_uid] + math.floor((rates[pool_uid] / rates_sum) * balance) for pool_uid in pools}
+    bt.logging.info("native_algo Result allocate of defi", len(result))
+    bt.logging.debug(f"Balance to allocate {balance}")
+    bt.logging.info(f"Total allocated: {sum(result.values())}")
+    bt.logging.info(f"Remain balance {balance + sum(minimums.values()) - sum(result.values())}")
+    return result;

@@ -1,5 +1,5 @@
 import math
-from typing import cast
+from typing import Dict, cast
 
 import bittensor as bt
 from web3.constants import ADDRESS_ZERO
@@ -14,16 +14,18 @@ from sturdy.pools import (
     DaiSavingsRate,
 )
 from sturdy.protocol import AllocateAssets, AlphaTokenPoolAllocation
+import time
 
-import json
+
 from typing import List, Tuple
 THRESHOLD = 0.99  # used to avoid over-allocations
 
 
 # NOTE: THIS IS JUST AN EXAMPLE - THIS IS NOT VERY OPTIMIZED
 async def naive_algorithm_optimize(self: BaseMinerNeuron, synapse: AllocateAssets) -> dict:
+    bt.logging.info("Process allocate by naive_algorithm_optimize")
     bt.logging.debug(f"received request type: {synapse.request_type}")
-    bt.logging.debug(f"synapse: {synapse}")
+    # bt.logging.debug(f"synapse: {synapse}")
     pools = cast(dict, synapse.assets_and_pools["pools"])
 
     for uid, pool in pools.items():
@@ -58,16 +60,16 @@ async def naive_algorithm_optimize(self: BaseMinerNeuron, synapse: AllocateAsset
     # sync pool parameters by calling smart contracts on chain
     for pool in pools.values():
         await pool.sync(self.pool_data_providers[pool.pool_data_provider_type])
-    bt.logging.debug("synced pools")
 
     # check the amounts that have been borrowed from the pools - and account for them
+    
     minimums = {}
     for pool_uid, pool in pools.items():
         if isinstance(pool, BittensorAlphaTokenPool):
             minimums[pool_uid] = 0
         else:
             minimums[pool_uid] = get_minimum_allocation(pool)
-    bt.logging.debug("set minimum allocation amounts")
+    bt.logging.debug("calculated minimum allocation amounts")
 
     total_assets_available -= sum(minimums.values())
     balance = int(total_assets_available)
@@ -76,50 +78,71 @@ async def naive_algorithm_optimize(self: BaseMinerNeuron, synapse: AllocateAsset
         return {}
 
     # rates are determined by making on chain calls to smart contracts
-    for pool in pools.values():
-        match pool.pool_type:
-            case POOL_TYPES.DAI_SAVINGS:
-                key = (id(pool), None)
-                if key not in supply_rate_cache:
-                    supply_rate_cache[key] = await pool.supply_rate()
-                apy = supply_rate_cache[key]
-                rates[pool.contract_address] = apy
-                rates_sum += apy
-            case POOL_TYPES.BT_ALPHA:
-                price = pool._price_rao
-                rates[str(pool.netuid)] = price
-                rates_sum += price
-            case _:
-                amount = balance // N
-                key = (id(pool), amount)
-                if key not in supply_rate_cache:
-                    supply_rate_cache[key] = await pool.supply_rate(amount)
-                apy = supply_rate_cache[key]
-                rates[pool.contract_address] = apy
-                rates_sum += apy
+    # for pool in pools.values():
+    #     match pool.pool_type:
+    #         case POOL_TYPES.DAI_SAVINGS:
+    #             key = (id(pool), None)
+    #             if key not in supply_rate_cache:
+    #                 supply_rate_cache[key] = await pool.supply_rate()
+    #             apy = supply_rate_cache[key]
+    #             rates[pool.contract_address] = apy
+    #             rates_sum += apy
+    #         case POOL_TYPES.BT_ALPHA:
+    #             price = pool._price_rao
+    #             rates[str(pool.netuid)] = price
+    #             rates_sum += price
+    #         case _:
+    #             amount = balance // N
+    #             key = (id(pool), amount)
+    #             if key not in supply_rate_cache:
+    #                 supply_rate_cache[key] = await pool.supply_rate(amount)
+    #             apy = supply_rate_cache[key]
+    #             rates[pool.contract_address] = apy
+    #             rates_sum += apy
 
     # check the type of the first pool, if it's a bittensor alpha token pool then assume the rest are too
     first_pool = next(iter(pools.values()))
     delegate_ss58 = "5F4tQyWrhfGVcNhoqeiNsR6KjD4wMZ2kfhLj4oHYuyHbZAc3"  # This is OTF's hotkey
     # by default we just distribute tao equally lol
+    bt.logging.debug(f"Number pools: {len(pools)}")
     if first_pool.pool_type == POOL_TYPES.BT_ALPHA:
         self.pool_data_providers[first_pool.pool_data_provider_type]
-        return {
+        allocation_dict = {
             netuid: AlphaTokenPoolAllocation(delegate_ss58=delegate_ss58, amount=math.floor(balance / N)) for netuid in pools
         }
-    bt.logging.debug(f"pools: {pools}")
+        total_allocated = sum(
+            alloc.amount if isinstance(alloc, AlphaTokenPoolAllocation) else alloc
+            for alloc in allocation_dict.values()
+        )
+        bt.logging.info(f"Total allocated: {total_allocated}")
+        # Log percentage allocated in each pool
+        for netuid, alloc in allocation_dict.items():
+            percent = (alloc.amount / total_allocated * 100) if total_allocated > 0 else 0
+            bt.logging.info(f"Pool {netuid}: {percent:.2f}% allocated")
+        return allocation_dict
+    
     
     # --- Add minimum allocation to result ---
     pool_list = list(pools.values())
     pool_uids = list(pools.keys())
     minimums_list = [minimums[uid] for uid in pool_uids]
-    result = await optimize_allocation(pool_list, balance, 1_00_000)
-    bt.logging.debug(f"result: {result}")
+    result = await optimize_allocation(pool_list, balance, step = max(10**15, balance // 100))
+    
     # Add minimums to each allocation
     final_allocations = [alloc + min_alloc for alloc, min_alloc in zip(result, minimums_list)]
     # Return as a dict mapping pool_uid to allocation
     allocation_dict = {uid: alloc for uid, alloc in zip(pool_uids, final_allocations)}
+    bt.logging.debug(f"result optimize_allocation: {result}")
+    bt.logging.debug(f"minimum allocate {sum(minimums.values())}")
     bt.logging.debug(f"allocation_dict: {allocation_dict}")
+    bt.logging.debug(f"Balance to allocate {balance}")
+    bt.logging.info(f"Total allocated: {sum(final_allocations)}")
+    bt.logging.info(f"Remain % balance {(balance + sum(minimums.values()) - sum(final_allocations)) / balance}")
+    # Log percentage allocated in each pool
+    total_allocated = sum(final_allocations)
+    for uid, alloc in allocation_dict.items():
+        percent = (alloc / total_allocated * 100) if total_allocated > 0 else 0
+        bt.logging.info(f"Pool {uid}: {percent:.2f}% allocated, allocate: {alloc}")
     return allocation_dict
 
 class SegmentTree:
@@ -183,115 +206,91 @@ class SegmentTree:
         return self.data[1]
 
 
-async def optimize_allocation(pools: List[ChainBasedPoolModel], total_amount: int, step: int = 10**18) -> List[int]:
-    """
-    Allocate total_amount into multiple pools to maximize returns based on marginal APY.
-    """
+async def optimize_allocation(
+    pools: List[ChainBasedPoolModel],
+    total_amount: int,
+    step: int = 10**15
+) -> List[int]:
+    startTime = time.time()
     if step <= 0:
         raise ValueError("Step must be greater than 0")
     if total_amount <= 0 or not pools:
         return [0] * len(pools)
 
     n = len(pools)
-    allocations = [0] * n
+    allocations: List[int] = [0] * n
     remaining = total_amount
+    supply_rate_cache: Dict[Tuple[str, int], float] = {}
 
-    # --- Detect fixed-rate pools ---
-    fixed_rate_pools = []
-    fixed_rates = []
-    variable_rate_pools = []
-    supply_rate_cache = {}
+    fixed_rate_pools: List[int] = []
+    fixed_rates: List[float] = []
+
     for i, pool in enumerate(pools):
-        key0 = (id(pool), 0)
-        key_step = (id(pool), step)
-        if await is_fixed_rate(pool, step):
-            if isinstance(pool, DaiSavingsRate):
-                if key0 not in supply_rate_cache:
-                    supply_rate_cache[key0] = await pool.supply_rate()
-                apy = supply_rate_cache[key0]
-            else:
-                if key0 not in supply_rate_cache:
-                    supply_rate_cache[key0] = await pool.supply_rate(0)
-                apy = supply_rate_cache[key0]
+        if await is_fixed_rate(pool, step, supply_rate_cache):
+            apy = await get_cached_rate(pool, 0, supply_rate_cache)
             fixed_rate_pools.append(i)
             fixed_rates.append(apy)
-        else:
-            variable_rate_pools.append(i)
 
-    # --- If any fixed-rate pool exists, allocate all to the best one ---
-    if fixed_rate_pools:
+    if len(fixed_rate_pools) == n:
         best_idx = fixed_rate_pools[fixed_rates.index(max(fixed_rates))]
-        allocations = [0] * n
         allocations[best_idx] = total_amount
         return allocations
 
-    # --- Greedy allocation for variable-rate pools ---
-    # Precompute initial marginal APYs
-    marginals = []
+    # Compute initial marginal APYs
+    marginals: List[float] = []
     for i, pool in enumerate(pools):
         try:
-            key0 = (id(pool), 0)
-            key_step = (id(pool), step)
-            if isinstance(pool, DaiSavingsRate):
-                if key0 not in supply_rate_cache:
-                    supply_rate_cache[key0] = await pool.supply_rate()
-                apy_now = apy_next = supply_rate_cache[key0]
-            else:
-                if key0 not in supply_rate_cache:
-                    supply_rate_cache[key0] = await pool.supply_rate(0)
-                if key_step not in supply_rate_cache:
-                    supply_rate_cache[key_step] = await pool.supply_rate(step)
-                apy_now = supply_rate_cache[key0]
-                apy_next = supply_rate_cache[key_step]
-            marginal = apy_next - apy_now
+            apy_next = await get_cached_rate(pool, step, supply_rate_cache)
+            margin = -math.inf
+            if apy_next > 0:
+                apy_now = await get_cached_rate(pool, 0, supply_rate_cache)
+                delta = apy_next - apy_now;
+                margin = max(delta, 1e-9)  # ép về dương rất nhỏ nếu trừ ra âm
+            marginals.append(margin)
+                
+                
         except Exception:
-            marginal = -math.inf
-        marginals.append(marginal)
-
+            bt.logging.error("Error process marginal")
+            marginals.append(-math.inf)
+    endInitMargin = time.time();
+    bt.logging.debug(f"Time init margin {endInitMargin - startTime}")
     seg = SegmentTree(n)
     seg.build(marginals)
-
+    endBuildTree = time.time();
+    bt.logging.debug(f"Time build tree {endBuildTree - endInitMargin}")
     while remaining > 0:
+        
         best_marginal_apy, best_idx = seg.query()
+        
         if best_marginal_apy <= 0 or best_idx == -1:
-            break
+            apy_next = await get_cached_rate(pools[best_idx], allocations[best_idx] + step, supply_rate_cache)
+            if apy_next <= 0:
+                break  # thực sự dừng khi APY cũng về 0
+            
 
         actual_step = min(step, remaining)
+        
+
         allocations[best_idx] += actual_step
         remaining -= actual_step
 
         try:
-            pool = pools[best_idx]
-            key_now = (id(pool), allocations[best_idx])
-            key_next = (id(pool), allocations[best_idx] + step)
-            if isinstance(pool, DaiSavingsRate):
-                if key_now not in supply_rate_cache:
-                    supply_rate_cache[key_now] = await pool.supply_rate()
-                apy_now = apy_next = supply_rate_cache[key_now]
-            else:
-                if key_now not in supply_rate_cache:
-                    supply_rate_cache[key_now] = await pool.supply_rate(allocations[best_idx])
-                if key_next not in supply_rate_cache:
-                    supply_rate_cache[key_next] = await pool.supply_rate(allocations[best_idx] + step)
-                apy_now = supply_rate_cache[key_now]
-                apy_next = supply_rate_cache[key_next]
+            current_alloc = allocations[best_idx]
+            apy_now = await get_cached_rate(pools[best_idx], current_alloc, supply_rate_cache)
+            apy_next = await get_cached_rate(pools[best_idx], current_alloc + step, supply_rate_cache)
+
             new_marginal = apy_next - apy_now
         except Exception:
             new_marginal = -math.inf
 
         seg.update(best_idx, new_marginal)
-
+    endMainLoop = time.time();
+    bt.logging.debug(f"Time process main loop {endMainLoop - endBuildTree}")
     return allocations
 
-async def is_fixed_rate(pool, step: int) -> bool:
-    """Check if a pool has a fixed supply rate regardless of amount."""
+async def is_fixed_rate(pool: ChainBasedPoolModel, step: int, cache: Dict[Tuple[int, int], float]) -> bool:
     try:
-        if isinstance(pool, DaiSavingsRate):
-            apy0 = apy1 = await pool.supply_rate()
-        else:
-            apy0 = await pool.supply_rate(0)
-            apy1 = await pool.supply_rate(step)
-        return apy0 is not None and apy0 == apy1
+        return isinstance(pool, DaiSavingsRate)
     except Exception:
         return False
 
@@ -301,3 +300,48 @@ async def get_apy(pool, amount=None):
         return await pool.supply_rate()
     else:
         return await pool.supply_rate(amount)
+
+import json
+from pathlib import Path
+
+async def get_cached_rate(
+    pool: ChainBasedPoolModel,
+    amount: int,
+    cache: Dict[Tuple[str, int], float]
+) -> float:
+    key = (pool.__class__.__name__, amount)
+    if key not in cache:
+        start_time = time.time()
+        bt.logging.debug(f"cache miss {key}")
+
+        if isinstance(pool, DaiSavingsRate):
+            cache[key] = await pool.supply_rate()
+        else:
+            cache[key] = await pool.supply_rate(amount)
+        elapsed_time = (time.time() - start_time) * 1000
+        bt.logging.debug(f"Time pool {pool.__class__.__name__} response supply_rate for {key}: {elapsed_time:.0f}ms")
+        bt.logging.info(f"supplyRate of:{pool.__class__.__name__} ammount:{amount} rate:{(cache[key]/1e18):2f}")
+
+        # Store info in JSON file on cache miss
+        log_entry = {
+            "pool_name": pool.__class__.__name__,
+            "amount": amount,
+            "rate": float(cache[key]),
+            "rate_human": float(cache[key]) / 1e18,
+            "elapsed_ms": elapsed_time
+        }
+        try:
+            log_path = Path("supply_rate_cache_miss.json")
+            if log_path.exists():
+                with log_path.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
+            else:
+                data = []
+            data.append(log_entry)
+            with log_path.open("w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            bt.logging.error(f"Failed to write supply_rate cache miss log: {e}")
+
+    return cache[key]
+

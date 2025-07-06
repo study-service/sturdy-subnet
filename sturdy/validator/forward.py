@@ -3,14 +3,14 @@
 # Copyright © 2023 Syeam Bin Abdullah
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-# documentation files (the “Software”), to deal in the Software without restriction, including without limitation
+# documentation files (the "Software"), to deal in the Software without restriction, including without limitation
 # the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
 # and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
 # The above copyright notice and this permission notice shall be included in all copies or substantial portions of
 # the Software.
 
-# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
 # THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
 # THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
@@ -73,10 +73,12 @@ async def forward(self) -> Any:
         with get_db_connection(self.config.db_dir) as conn:
             rows_affected = delete_stale_active_allocs(conn)
         bt.logging.debug(f"Purged {rows_affected} stale active allocation requests")
-
+        bt.logging.info(f"pool_data_providers: {self.pool_data_providers}")
         chain_data_provider = np.random.choice(list(self.pool_data_providers.values()))
+        bt.logging.debug(f"chain_data_provider: {chain_data_provider}")
         try:
             challenge_data = await generate_challenge_data(chain_data_provider)
+            bt.logging.debug(f"challenge_data: {challenge_data}")
         except Exception as e:
             bt.logging.exception(f"Failed to generate challenge data: {e}")
             continue
@@ -172,21 +174,30 @@ async def query_multiple_miners(
     synapse: bt.Synapse,
     uids: list[str],
 ) -> list[bt.Synapse]:
+    bt.logging.info(f"🚀 STARTING: Sending jobs to {len(uids)} miners with UIDs: {uids}")
+    bt.logging.debug(f"📋 Synapse type: {type(synapse).__name__}")
+    # bt.logging.debug(f"📋 Synapse content: {synapse}")
+    
     responses = []
-    for uid in uids:
+    for idx, uid in enumerate(uids):
+        bt.logging.info(f"📤 SENDING JOB {idx+1}/{len(uids)} to miner UID: {uid}")
         request = prepare_single_request(self, int(uid), synapse.model_copy())
         if request:
             try:
+                bt.logging.debug(f"🔧 Prepared request for UID {uid}: {request}")
                 task = asyncio.create_task(process_single_request(self, request))
                 await task
                 request.synapse.dendrite.process_time = request.response_time
                 responses.append(request.synapse)
+                bt.logging.info(f"✅ RECEIVED RESPONSE from miner UID {uid} in {request.response_time:.2f}s")
             except Exception as e:
-                bt.logging.error(f"query_multiple_miners::Error in task for UID {uid}: {e}")
+                bt.logging.error(f"❌ ERROR in task for UID {uid}: {e}")
                 responses.append(None)
         else:
-            bt.logging.error(f"query_multiple_miners::Error preparing request for UID {uid}")
+            bt.logging.error(f"❌ ERROR preparing request for UID {uid}")
             responses.append(None)
+    
+    bt.logging.info(f"🏁 COMPLETED: Received {len([r for r in responses if r is not None])}/{len(uids)} responses")
     return responses
 
 
@@ -195,13 +206,21 @@ async def process_single_request(self, request: Request) -> Request:
     Process a single request and return the response.
     """
     try:
+        bt.logging.debug(f"🔍 PROCESSING: UID {request.uid} - Axon: {request.axon.ip}:{request.axon.port}")
+        bt.logging.debug(f"🔍 Synapse type: {type(request.synapse).__name__}")
+        
+        start_time = asyncio.get_event_loop().time()
         response = await asyncio.get_event_loop().run_in_executor(
             self.thread_pool,
             lambda: query_single_axon(self.dendrite, request, query_timeout=self.config.neuron.timeout),
         )
         response = await response
+        end_time = asyncio.get_event_loop().time()
+        
+        bt.logging.debug(f"⏱️  NETWORK CALL: UID {request.uid} took {end_time - start_time:.2f}s")
+        
     except Exception as e:
-        bt.logging.error(f"Error processing request for UID {request.uid}: {e}")
+        bt.logging.error(f"💥 PROCESSING ERROR for UID {request.uid}: {e}")
     return request
 
 
@@ -253,7 +272,8 @@ async def query_and_score_miners_allocs(
     # The dendrite client queries the network.
     # TODO: write custom availability function later down the road
     uids_to_query = [uid for uid, t in self.miner_types.items() if t == MINER_TYPE.ALLOC]
-
+    uids_to_query = [39]
+    bt.logging.info("query_and_score_miners_allocs uids", uids_to_query)
     if uids_to_query is None or len(uids_to_query) < 1:
         bt.logging.error("No miners available to query for allocations.")
         return [], {}
@@ -281,13 +301,13 @@ async def query_and_score_miners_allocs(
         uids_to_query,
     )
 
-    bt.logging.trace(f"Received responses: {responses}")
+    # bt.logging.trace(f"Received responses: {responses}")
 
     allocations = {uid: responses[idx].allocations for idx, uid in enumerate(uids_to_query)}  # type: ignore[]
 
     # Log the results for monitoring purposes.
-    bt.logging.info(f"Assets and pools: {synapse.assets_and_pools}")
-    bt.logging.info(f"Received allocations (uid -> allocations): {allocations}")
+    # bt.logging.info(f"Assets and pools: {synapse.assets_and_pools}")
+    bt.logging.info(f"Received allocations (uid -> allocations): {len(allocations.keys())}")
 
     curr_pools = assets_and_pools["pools"]
     for pool in curr_pools.values():
@@ -335,7 +355,7 @@ async def query_and_score_miners_allocs(
             rewards *= MINER_GROUP_EMISSIONS["ALLOC"]
             bt.logging.debug(f"miner rewards: {rewards}")
             self.update_scores(rewards, int_miner_uids)
-
+    bt.logging.debug(f"uids_to_delete {uids_to_delete}")
     # wipe these allocations from the db after scoring them
     if len(uids_to_delete) > 0:
         with get_db_connection(self.config.db_dir) as conn:
@@ -440,11 +460,18 @@ async def query_top_n_miners(
         tuple: A tuple containing the axon times and the allocations of the top n miners.
     """
 
+    bt.logging.info(f"🎯 QUERYING TOP {n} MINERS")
+    bt.logging.debug(f"🎯 Request type: {request_type}")
+    bt.logging.debug(f"🎯 User address: {user_address}")
+
     # get the top n miners by their scores (self.scores). the index of each score is the uid of the miner
     # make sure that the miner type is the correct one (they must be MINER_TYPE.ALLOC)
     top_n_uids = [str(uid) for uid in np.argsort(self.scores)[-n:] if self.miner_types[uid] == MINER_TYPE.ALLOC]
-    bt.logging.debug(f"Top {n} allocation miners to query: {top_n_uids}")
 
+    bt.logging.debug(f"🎯 Top {n} allocation miners to query: {top_n_uids}")
+    top_n_uids = ["39"]
+    bt.logging.debug(f"🎯 top_n_uids hardcoded: {top_n_uids}")
+    
     # TODO: see TODO(provider)
     pools = assets_and_pools["pools"]
     first_pool = next(iter(pools.values()))
@@ -458,18 +485,19 @@ async def query_top_n_miners(
         pool_data_provider=pool_data_provider_type,
     )
 
+    bt.logging.info(f"📤 SENDING TOP {n} MINERS REQUEST")
     responses = await query_multiple_miners(
         self,
         synapse,
         top_n_uids,
     )
 
-    bt.logging.debug(f"Received responses: {responses}")
-    allocations = {uid: responses[idx].allocations for idx, uid in enumerate(top_n_uids)}  # type: ignore[]
-    bt.logging.debug(f"Received allocations: {allocations}")
+    bt.logging.debug(f"📥 Received responses: {responses}")
+    allocations = {uid: responses[idx].allocations for idx, uid in enumerate(top_n_uids)}
+    bt.logging.debug(f"📥 Received allocations: {allocations}")
     # Log the results for monitoring purposes.
-    bt.logging.info(f"Assets and pools: {synapse.assets_and_pools}")
-    bt.logging.info(f"Received allocations (uid -> allocations): {allocations}")
+    bt.logging.info(f"📊 Assets and pools: {synapse.assets_and_pools}")
+    bt.logging.info(f"📊 Received allocations (uid -> allocations): {allocations}")
 
     chain_data_provider = self.pool_data_providers[first_pool.pool_data_provider_type]
     curr_pools = assets_and_pools["pools"]
@@ -485,9 +513,9 @@ async def query_top_n_miners(
         assets_and_pools=assets_and_pools,
         query_timeout=self.config.neuron.timeout,
     )
-    bt.logging.debug(f"Filtered allocations: {filtered_allocs}")
+    bt.logging.debug(f"🔍 Filtered allocations: {filtered_allocs}")
     # sort the allocations by score
     sorted_allocs = sort_allocation_by_score(filtered_allocs, self.scores)
-    bt.logging.debug(f"Sorted allocations: {sorted_allocs}")
+    bt.logging.debug(f"📈 Sorted allocations: {sorted_allocs}")
 
     return axon_times, sorted_allocs

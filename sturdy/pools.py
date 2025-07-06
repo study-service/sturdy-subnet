@@ -20,6 +20,7 @@ import math
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
+import time
 from typing import Any, ClassVar, Literal
 
 import bittensor as bt
@@ -467,7 +468,7 @@ class AaveV3DefaultInterestRateV2Pool(ChainBasedPoolModel):
             delta = amount - already_deposited
             to_deposit = max(0, delta)
             to_remove = abs(delta) if delta < 0 else 0
-
+            start = time.perf_counter()
             (nextLiquidityRate, _) = await async_retry_with_backoff(
                 self._strategy_contract.functions.calculateInterestRates(
                     (
@@ -482,6 +483,8 @@ class AaveV3DefaultInterestRateV2Pool(ChainBasedPoolModel):
                     ),
                 ).call,
             )
+            elapsed = (time.perf_counter() - start) * 1000
+            bt.logging.debug(f"[{self.__class__.__name__}] supply_rate({amount}) took {elapsed:.0f} ms")
 
             return AsyncWeb3.to_wei(nextLiquidityRate / 1e27, "ether")
 
@@ -680,7 +683,7 @@ class AaveV3RateTargetBaseInterestRatePool(ChainBasedPoolModel):
             delta = amount - already_deposited
             to_deposit = max(0, delta)
             to_remove = abs(delta) if delta < 0 else 0
-
+            start = time.perf_counter()
             (nextLiquidityRate, _, _) = await async_retry_with_backoff(
                 self._strategy_contract.functions.calculateInterestRates(
                     (
@@ -696,7 +699,8 @@ class AaveV3RateTargetBaseInterestRatePool(ChainBasedPoolModel):
                     ),
                 ).call,
             )
-
+            elapsed = (time.perf_counter() - start) * 1000
+            bt.logging.debug(f"[{self.__class__.__name__}] supply_rate({amount}) took {elapsed:.0f} ms")
             return AsyncWeb3.to_wei(nextLiquidityRate / 1e27, "ether")
 
         except Exception as e:
@@ -827,7 +831,7 @@ class VariableInterestSturdySiloStrategy(ChainBasedPoolModel):
         last_update_timestamp = self._current_rate_info.lastTimestamp
         current_timestamp = self._block["timestamp"]
         delta_time = int(current_timestamp - last_update_timestamp)
-
+        start = time.perf_counter()
         protocol_fee = self._current_rate_info.feeToProtocolRate
         (new_rate_per_sec, _) = await async_retry_with_backoff(
             self._rate_model_contract.functions.getNewRate(
@@ -836,7 +840,8 @@ class VariableInterestSturdySiloStrategy(ChainBasedPoolModel):
                 int(self._current_rate_info.fullUtilizationRate),
             ).call,
         )
-
+        elapsed = (time.perf_counter() - start) * 1000
+        bt.logging.debug(f"[{self.__class__.__name__}] supply_rate({amount}) took {elapsed:.0f} ms")
         return int(
             new_rate_per_sec
             * 31536000
@@ -942,7 +947,7 @@ class CompoundV3Pool(ChainBasedPoolModel):
         utilization = wei_div(current_borrows, new_supply)
         seconds_per_year = 31536000
         seconds_per_day = 86400
-
+        start = time.perf_counter()
         pool_rate = (
             await async_retry_with_backoff(self._ctoken_contract.functions.getSupplyRate(utilization).call) * seconds_per_year
         )
@@ -956,6 +961,8 @@ class CompoundV3Pool(ChainBasedPoolModel):
         )
         reward_per_day = base_tracking_supply_speed / base_index_scale * seconds_per_day
         comp_rate = 0
+        elapsed = (time.perf_counter() - start) * 1000
+        bt.logging.debug(f"[{self.__class__.__name__}] supply_rate({amount}) took {elapsed:.0f} ms")
 
         if conv_total_supply * self._base_token_price > 0:
             comp_rate = AsyncWeb3.to_wei(
@@ -1011,10 +1018,15 @@ class DaiSavingsRate(ChainBasedPoolModel):
     # last 256 unique calls to this will be cached for the next 60 seconds
     @alru_cache(maxsize=512, ttl=60)
     async def supply_rate(self) -> int:
+        start = time.perf_counter()
         RAY = 1e27
         dsr = await async_retry_with_backoff(self._pot_contract.functions.dsr().call)
         seconds_per_year = 31536000
         x = (dsr / RAY) ** seconds_per_year
+
+        elapsed = (time.perf_counter() - start) * 1000
+        bt.logging.debug(f"[{self.__class__.__name__}] took {elapsed:.0f} ms")
+
         return int(math.floor((x - 1) * 1e18))
 
 
@@ -1140,6 +1152,7 @@ class MorphoVault(ChainBasedPoolModel):
     # last 256 unique calls to this will be cached for the next 60 seconds
     @alru_cache(maxsize=512, ttl=60)
     async def supply_rate(self, amount: int) -> int:
+        start = time.perf_counter()
         supply_queue_length = await async_retry_with_backoff(self._vault_contract.functions.supplyQueueLength().call)
         market_ids = [
             await async_retry_with_backoff(self._vault_contract.functions.supplyQueue(idx).call)
@@ -1188,6 +1201,9 @@ class MorphoVault(ChainBasedPoolModel):
         curr_agg_apy = sum([current_assets[i] * current_supply_apys[i] for i in range(supply_queue_length)]) / sum(
             current_assets
         )
+        elapsed = (time.perf_counter() - start) * 1000
+        bt.logging.debug(f"[{self.__class__.__name__}] supply_rate({amount}) took {elapsed:.0f} ms")
+
 
         return int(curr_agg_apy * self._total_supplied_assets / (self._total_supplied_assets + total_asset_delta))
 
@@ -1244,8 +1260,13 @@ class YearnV3Vault(ChainBasedPoolModel):
         self._yield_index = await async_retry_with_backoff(self._vault_contract.functions.pricePerShare().call)
 
     async def supply_rate(self, amount: int) -> int:
+        start = time.perf_counter()
         delta = amount - self._user_deposits
-        return await async_retry_with_backoff(self._apr_oracle.functions.getExpectedApr(self.contract_address, delta).call)
+        result = await async_retry_with_backoff(self._apr_oracle.functions.getExpectedApr(self.contract_address, delta).call)
+        elapsed = (time.perf_counter() - start) * 1000
+        bt.logging.debug(f"[{self.__class__.__name__}] supply_rate({amount}) took {elapsed:.0f} ms")
+
+        return result
 
 
 def generate_eth_public_key(rng_gen: np.random.RandomState) -> str:

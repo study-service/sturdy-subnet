@@ -77,9 +77,9 @@ class BaseValidatorNeuron(BaseNeuron):
             POOL_DATA_PROVIDER_TYPE.ETHEREUM_MAINNET: await PoolProviderFactory.create_pool_provider(
                 POOL_DATA_PROVIDER_TYPE.ETHEREUM_MAINNET, url=eth_provider_url
             ),
-            POOL_DATA_PROVIDER_TYPE.BITTENSOR_MAINNET: await PoolProviderFactory.create_pool_provider(
-                POOL_DATA_PROVIDER_TYPE.BITTENSOR_MAINNET, url=bittensor_mainnet_url
-            ),
+            # POOL_DATA_PROVIDER_TYPE.BITTENSOR_MAINNET: await PoolProviderFactory.create_pool_provider(
+            #     POOL_DATA_PROVIDER_TYPE.BITTENSOR_MAINNET, url=bittensor_mainnet_url
+            # ),
             POOL_DATA_PROVIDER_TYPE.BITTENSOR_WEB3: await PoolProviderFactory.create_pool_provider(
                 POOL_DATA_PROVIDER_TYPE.BITTENSOR_WEB3, url=bittensor_web3_url
             ),
@@ -102,7 +102,7 @@ class BaseValidatorNeuron(BaseNeuron):
         self.miner_types = {}
 
         # Load state
-        bt.logging.info("load_state()")
+        
         await self.load_state()
         # Init sync with the network. Updates the metagraph.
         await self.sync()
@@ -131,7 +131,7 @@ class BaseValidatorNeuron(BaseNeuron):
         """Start validator tasks"""
         self._tasks.append(asyncio.create_task(self.run_main_loop()))
         # Add the uniswap v3 lp loop as a separate task
-        self._tasks.append(asyncio.create_task(self.run_uniswap_v3_lp_loop()))
+        # self._tasks.append(asyncio.create_task(self.run_uniswap_v3_lp_loop()))
 
     async def stop(self) -> None:
         """Stop all validator tasks"""
@@ -154,7 +154,7 @@ class BaseValidatorNeuron(BaseNeuron):
     async def run_main_loop(self) -> None:
         """Main validator loop"""
         await self.sync()
-        bt.logging.info("Validator starting...")
+        bt.logging.info("Validator starting loop...")
 
         try:
             while not self._stop_event.is_set():

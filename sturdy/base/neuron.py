@@ -116,6 +116,7 @@ class BaseNeuron(ABC):
             {self.subtensor.chain_endpoint}"
         )
         self.step = 0
+        bt.logging.info(f"Neuron initialized")
 
     @abstractmethod
     async def forward(self, synapse: bt.Synapse) -> bt.Synapse: ...
