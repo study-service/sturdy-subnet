@@ -14,10 +14,14 @@ from sturdy.pools import (
     DaiSavingsRate,
 )
 from sturdy.protocol import AllocateAssets, AlphaTokenPoolAllocation
+
+
 import time
 
+from typing import List, Dict, Tuple
+from pathlib import Path
 
-from typing import List, Tuple
+
 THRESHOLD = 0.99  # used to avoid over-allocations
 
 
@@ -126,7 +130,7 @@ async def naive_algorithm_optimize(self: BaseMinerNeuron, synapse: AllocateAsset
     pool_list = list(pools.values())
     pool_uids = list(pools.keys())
     minimums_list = [minimums[uid] for uid in pool_uids]
-    result = await optimize_allocation(pool_list, balance, step = max(10**15, balance // 100))
+    result = await optimize_allocation(pool_list, balance, step = max(10**16, balance // 100))
     
     # Add minimums to each allocation
     final_allocations = [alloc + min_alloc for alloc, min_alloc in zip(result, minimums_list)]
@@ -206,28 +210,80 @@ class SegmentTree:
         return self.data[1]
 
 
+
+
+DECIMALS = 10**18
+DEFAULT_STEP = 10**15
+
+def round_amount(amount: int, step: int = DEFAULT_STEP) -> int:
+    return (amount // step) * step
+
+async def get_cached_rate(
+    pool: ChainBasedPoolModel,
+    amount: int,
+    cache: Dict[Tuple[str, int], float],
+    step: int
+) -> float:
+    safe_amount = max(amount, step)  # tránh amount=0
+    rounded = round_amount(safe_amount, step)
+    key = (id(pool), rounded)
+    if key not in cache:
+        start_time = time.time()
+        # bt.logging.debug(f"[Cache Miss] supply_rate key: {key}")
+        try:
+            if isinstance(pool, DaiSavingsRate):
+                rate = await pool.supply_rate()
+            else:
+                rate = await pool.supply_rate(rounded)
+            cache[key] = rate
+        except Exception as e:
+            bt.logging.error(f"Failed to get supply_rate for {key}: {e}")
+            cache[key] = 0
+
+        elapsed = (time.time() - start_time) * 1000
+        # bt.logging.info(
+        #     f"Supply rate | Pool: {key[0]} | Amount: {rounded} | Rate: {cache[key]/DECIMALS:.6f} | Time: {elapsed:.0f}ms"
+        # )
+
+    return cache[key]
+
+async def is_fixed_rate(
+    pool: ChainBasedPoolModel,
+    step: int,
+    cache: Dict[Tuple[int, int], float]
+) -> bool:
+    try:
+        if isinstance(pool, DaiSavingsRate):
+            return True
+
+        safe_amount = max(step, 1)  # tránh 0
+        rate_1x = await get_cached_rate(pool, safe_amount, cache, step)
+        rate_2x = await get_cached_rate(pool, safe_amount * 2, cache, step)
+
+        return math.isclose(rate_1x, rate_2x, rel_tol=1e-9)
+    except Exception as e:
+        bt.logging.error(f"Failed in is_fixed_rate: {e}")
+        return False
+
 async def optimize_allocation(
     pools: List[ChainBasedPoolModel],
     total_amount: int,
     step: int = 10**15
 ) -> List[int]:
-    startTime = time.time()
-    if step <= 0:
-        raise ValueError("Step must be greater than 0")
-    if total_amount <= 0 or not pools:
+    if step <= 0 or total_amount <= 0 or not pools:
         return [0] * len(pools)
 
     n = len(pools)
-    allocations: List[int] = [0] * n
+    allocations = [0] * n
     remaining = total_amount
-    supply_rate_cache: Dict[Tuple[str, int], float] = {}
+    supply_rate_cache: Dict[Tuple[int, int], float] = {}
 
-    fixed_rate_pools: List[int] = []
-    fixed_rates: List[float] = []
-
+    # Handle fixed-rate
+    fixed_rate_pools = []
+    fixed_rates = []
     for i, pool in enumerate(pools):
         if await is_fixed_rate(pool, step, supply_rate_cache):
-            apy = await get_cached_rate(pool, 0, supply_rate_cache)
+            apy = await get_cached_rate(pool, step, supply_rate_cache, step)
             fixed_rate_pools.append(i)
             fixed_rates.append(apy)
 
@@ -236,112 +292,40 @@ async def optimize_allocation(
         allocations[best_idx] = total_amount
         return allocations
 
-    # Compute initial marginal APYs
-    marginals: List[float] = []
+    # Initialize marginal APYs
+    marginals = []
     for i, pool in enumerate(pools):
         try:
-            apy_next = await get_cached_rate(pool, step, supply_rate_cache)
-            margin = -math.inf
-            if apy_next > 0:
-                apy_now = await get_cached_rate(pool, 0, supply_rate_cache)
-                delta = apy_next - apy_now;
-                margin = max(delta, 1e-9)  # ép về dương rất nhỏ nếu trừ ra âm
+            apy_now = await get_cached_rate(pool, step, supply_rate_cache, step)
+            apy_next = await get_cached_rate(pool, step * 2, supply_rate_cache, step)
+            margin = max(apy_next - apy_now, 1e-9)
             marginals.append(margin)
-                
-                
         except Exception:
-            bt.logging.error("Error process marginal")
             marginals.append(-math.inf)
-    endInitMargin = time.time();
-    bt.logging.debug(f"Time init margin {endInitMargin - startTime}")
+
     seg = SegmentTree(n)
     seg.build(marginals)
-    endBuildTree = time.time();
-    bt.logging.debug(f"Time build tree {endBuildTree - endInitMargin}")
+
+    # Greedy allocation loop
     while remaining > 0:
-        
         best_marginal_apy, best_idx = seg.query()
-        
         if best_marginal_apy <= 0 or best_idx == -1:
-            apy_next = await get_cached_rate(pools[best_idx], allocations[best_idx] + step, supply_rate_cache)
-            if apy_next <= 0:
-                break  # thực sự dừng khi APY cũng về 0
-            
+            break
 
         actual_step = min(step, remaining)
-        
-
         allocations[best_idx] += actual_step
         remaining -= actual_step
 
         try:
-            current_alloc = allocations[best_idx]
-            apy_now = await get_cached_rate(pools[best_idx], current_alloc, supply_rate_cache)
-            apy_next = await get_cached_rate(pools[best_idx], current_alloc + step, supply_rate_cache)
-
-            new_marginal = apy_next - apy_now
+            current = allocations[best_idx]
+            apy_now = await get_cached_rate(pools[best_idx], current, supply_rate_cache, step)
+            apy_next = await get_cached_rate(pools[best_idx], current + step, supply_rate_cache, step)
+            new_marginal = max(apy_next - apy_now, 1e-9)
         except Exception:
             new_marginal = -math.inf
 
         seg.update(best_idx, new_marginal)
-    endMainLoop = time.time();
-    bt.logging.debug(f"Time process main loop {endMainLoop - endBuildTree}")
+
     return allocations
 
-async def is_fixed_rate(pool: ChainBasedPoolModel, step: int, cache: Dict[Tuple[int, int], float]) -> bool:
-    try:
-        return isinstance(pool, DaiSavingsRate)
-    except Exception:
-        return False
-
-async def get_apy(pool, amount=None):
-    """Get APY for a pool, handling DaiSavingsRate signature."""
-    if isinstance(pool, DaiSavingsRate):
-        return await pool.supply_rate()
-    else:
-        return await pool.supply_rate(amount)
-
-import json
-from pathlib import Path
-
-async def get_cached_rate(
-    pool: ChainBasedPoolModel,
-    amount: int,
-    cache: Dict[Tuple[str, int], float]
-) -> float:
-    key = (pool.__class__.__name__, amount)
-    if key not in cache:
-        start_time = time.time()
-        bt.logging.debug(f"cache miss {key}")
-
-        if isinstance(pool, DaiSavingsRate):
-            cache[key] = await pool.supply_rate()
-        else:
-            cache[key] = await pool.supply_rate(amount)
-        elapsed_time = (time.time() - start_time) * 1000
-        bt.logging.debug(f"Time pool {pool.__class__.__name__} response supply_rate for {key}: {elapsed_time:.0f}ms")
-        bt.logging.info(f"supplyRate of:{pool.__class__.__name__} ammount:{amount} rate:{(cache[key]/1e18):2f}")
-
-        # Store info in JSON file on cache miss
-        log_entry = {
-            "pool_name": pool.__class__.__name__,
-            "amount": amount,
-            "rate": float(cache[key]),
-            "rate_human": float(cache[key]) / 1e18,
-            "elapsed_ms": elapsed_time
-        }
-        try:
-            log_path = Path("supply_rate_cache_miss.json")
-            if log_path.exists():
-                with log_path.open("r", encoding="utf-8") as f:
-                    data = json.load(f)
-            else:
-                data = []
-            data.append(log_entry)
-            with log_path.open("w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
-        except Exception as e:
-            bt.logging.error(f"Failed to write supply_rate cache miss log: {e}")
-
-    return cache[key]
 

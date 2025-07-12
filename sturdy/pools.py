@@ -44,7 +44,7 @@ from sturdy.utils.misc import (
     rayMul,
     retry_with_backoff,
 )
-
+from typing import List, Dict, Tuple
 
 class POOL_TYPES(str, Enum):
     STURDY_SILO = "STURDY_SILO"
@@ -935,6 +935,7 @@ class CompoundV3Pool(ChainBasedPoolModel):
         self._user_deposits = await async_retry_with_backoff(self._ctoken_contract.functions.balanceOf(self.user_address).call)
         self._total_supplied_assets = await async_retry_with_backoff(self._ctoken_contract.functions.totalSupply().call)
 
+    @alru_cache(maxsize=512, ttl=60)
     async def supply_rate(self, amount: int) -> int:
         # amount scaled down to the asset's decimals from 18 decimals (wei)
         # get pool supply rate (base token)
@@ -1016,7 +1017,7 @@ class DaiSavingsRate(ChainBasedPoolModel):
             await self.pool_init(web3_provider)
 
     # last 256 unique calls to this will be cached for the next 60 seconds
-    @alru_cache(maxsize=512, ttl=60)
+    @alru_cache(maxsize=512, ttl=120)
     async def supply_rate(self) -> int:
         start = time.perf_counter()
         RAY = 1e27
@@ -1149,15 +1150,33 @@ class MorphoVault(ChainBasedPoolModel):
     def shares_to_assets_down(cls, shares: int, total_assets: int, total_shares: int) -> int:
         return (shares * (total_assets + cls._VIRTUAL_ASSETS)) // (total_shares + cls._VIRTUAL_SHARES)
 
-    # last 256 unique calls to this will be cached for the next 60 seconds
-    @alru_cache(maxsize=512, ttl=60)
-    async def supply_rate(self, amount: int) -> int:
-        start = time.perf_counter()
+    @alru_cache(ttl=60)
+    async def get_market_ids(self) -> List[int]:
+        """Cache market IDs from vault contract"""
         supply_queue_length = await async_retry_with_backoff(self._vault_contract.functions.supplyQueueLength().call)
         market_ids = [
             await async_retry_with_backoff(self._vault_contract.functions.supplyQueue(idx).call)
             for idx in range(supply_queue_length)
         ]
+        return market_ids
+
+    @alru_cache(ttl=60)
+    async def get_market_info(self, market_id: int):
+        """Cache market and market_params by market_id"""
+        market = await async_retry_with_backoff(
+            self._morpho_contract.functions.market(market_id).call
+        )
+        market_params = await async_retry_with_backoff(
+            self._morpho_contract.functions.idToMarketParams(market_id).call
+        )
+        return market, market_params
+
+    # last 256 unique calls to this will be cached for the next 60 seconds
+    @alru_cache(maxsize=512, ttl=60)
+    async def supply_rate(self, amount: int) -> int:
+        start = time.perf_counter()
+        supply_queue_length = await async_retry_with_backoff(self._vault_contract.functions.supplyQueueLength().call)
+        market_ids = await self.get_market_ids();
 
         total_asset_delta = amount - self._user_deposits
 
@@ -1169,8 +1188,7 @@ class MorphoVault(ChainBasedPoolModel):
         # calculate the supply apys for each market
         for market_id in market_ids:
             # calculate current supply apy
-            market = await async_retry_with_backoff(self._morpho_contract.functions.market(market_id).call)
-            market_params = await async_retry_with_backoff(self._morpho_contract.functions.idToMarketParams(market_id).call)
+            market, market_params = await self.get_market_info(market_id)
             irm_contract = self._irm_contracts[market_id]
             irm_address = irm_contract.address
 
@@ -1259,6 +1277,7 @@ class YearnV3Vault(ChainBasedPoolModel):
         # get current price per share
         self._yield_index = await async_retry_with_backoff(self._vault_contract.functions.pricePerShare().call)
 
+    @alru_cache(maxsize=512, ttl=60)
     async def supply_rate(self, amount: int) -> int:
         start = time.perf_counter()
         delta = amount - self._user_deposits
